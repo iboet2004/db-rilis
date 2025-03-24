@@ -14,7 +14,7 @@ def create_scorecard(title, value, delta=None):
     """Create a simple scorecard metric"""
     st.metric(label=title, value=value, delta=delta)
 
-def create_top_entities_chart(entity_counts, title, limit=5):
+def create_top_entities_chart(entity_counts, title, limit=10):
     """Create bar chart for top entities"""
     if entity_counts.empty:
         st.warning(f"Tidak ada data untuk {title}")

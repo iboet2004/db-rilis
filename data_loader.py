@@ -2,12 +2,15 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
-import json
 
 def connect_to_sheets():
     """
     Connect to Google Sheets using service account from Streamlit Secrets
     """
+    # Spreadsheet ID
+    sheet_id = "1OrofvXQ5a-H27SR5YtrTkv4szzRRDQ6KUELGAVMWbVg"
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet="
+    
     try:
         # Get credentials from Streamlit Secrets
         if 'gcp_service_account' in st.secrets:
@@ -24,18 +27,13 @@ def connect_to_sheets():
             # Authorize and get the Google Sheets client
             client = gspread.authorize(credentials)
             
-            # Spreadsheet ID
-            sheet_id = "1OrofvXQ5a-H27SR5YtrTkv4szzRRDQ6KUELGAVMWbVg"
-            
-            return client, sheet_id
+            return client, sheet_id, url
         else:
             # Fallback to public access if no credentials
-            sheet_id = "1OrofvXQ5a-H27SR5YtrTkv4szzRRDQ6KUELGAVMWbVg"
-            url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet="
             return None, sheet_id, url
     except Exception as e:
         st.error(f"Error connecting to Google Sheets: {e}")
-        return None, None, None
+        return None, sheet_id, url
 
 def load_dataset(sheet_name):
     """
@@ -46,18 +44,25 @@ def load_dataset(sheet_name):
         
         if client:
             # Use gspread client to open the sheet
-            spreadsheet = client.open_by_key(sheet_id)
-            worksheet = spreadsheet.worksheet(sheet_name)
-            data = worksheet.get_all_values()
-            
-            # Convert to pandas DataFrame
-            if data:
-                headers = data[0]
-                values = data[1:]
-                df = pd.DataFrame(values, columns=headers)
+            try:
+                spreadsheet = client.open_by_key(sheet_id)
+                worksheet = spreadsheet.worksheet(sheet_name)
+                data = worksheet.get_all_values()
+                
+                # Convert to pandas DataFrame
+                if data:
+                    headers = data[0]
+                    values = data[1:]
+                    df = pd.DataFrame(values, columns=headers)
+                    return df
+                else:
+                    st.warning(f"Tidak ada data di sheet {sheet_name}")
+                    return pd.DataFrame()
+            except Exception as e:
+                st.warning(f"Gagal mengakses sheet dengan gspread: {e}. Mencoba metode alternatif...")
+                # Fallback to direct CSV access if gspread fails
+                df = pd.read_csv(f"{url}{sheet_name}")
                 return df
-            else:
-                return pd.DataFrame()
         else:
             # Fallback to direct CSV access
             df = pd.read_csv(f"{url}{sheet_name}")

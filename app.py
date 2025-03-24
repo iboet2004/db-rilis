@@ -328,7 +328,7 @@ def main():
         berita_sp_ref_col = df_berita.columns[1]  # Kolom B
         berita_media_col = df_berita.columns[3]  # Kolom D
         berita_content_col = df_berita.columns[4]  # Kolom E
-        berita_date_col = df_berita.columns[2]  # Assuming date is in column C
+        berita_date_col = df_berita.columns[0]  # Kolom A
         
         # Process media column to get entities
         _, media_counts = process_dataset(df_berita, berita_media_col)

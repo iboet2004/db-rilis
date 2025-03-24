@@ -14,7 +14,7 @@ def create_scorecard(title, value, delta=None):
     """Create a simple scorecard metric"""
     st.metric(label=title, value=value, delta=delta)
 
-def create_top_entities_chart(entity_counts, title, limit=10):
+def create_top_entities_chart(entity_counts, title, limit=5):
     """Create bar chart for top entities"""
     if entity_counts.empty:
         st.warning(f"Tidak ada data untuk {title}")
@@ -116,29 +116,3 @@ def create_wordcloud(text_series):
     plt.tight_layout()
     
     st.pyplot(fig)
-
-def create_location_map(locations):
-    """Create map with markers for locations"""
-    if not locations:
-        st.warning("Tidak ada data lokasi")
-        return
-    
-    # Placeholder map centered on Indonesia
-    m = folium.Map(location=[-2.5489, 118.0149], zoom_start=5)
-    
-    # In a real application, you'd need to geocode these locations
-    # For this example, we'll use random coordinates around Indonesia
-    np.random.seed(42)
-    for i, location in enumerate(locations):
-        # Random coordinates around Indonesia
-        lat = -6.0 + np.random.uniform(-3, 3)
-        lon = 110.0 + np.random.uniform(-10, 10)
-        
-        folium.Marker(
-            [lat, lon],
-            popup=location,
-            tooltip=location
-        ).add_to(m)
-    
-    # Display map
-    folium_static(m)

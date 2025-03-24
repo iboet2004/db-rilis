@@ -51,7 +51,7 @@ def main():
     
     # 2. Bar Chart - Top 10 Narasumber
     with col2:
-        create_top_entities_chart(source_counts, "Top 10 Narasumber", 10)
+        create_top_entities_chart(source_counts, "Top 5 Narasumber", 5)
     
     # 3. Wordcloud dari Konten
     st.subheader("Wordcloud Konten Siaran Pers")

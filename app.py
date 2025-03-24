@@ -320,7 +320,8 @@ def main():
         sp_sources_col = df_sp.columns[3]  # Kolom D
         sp_date_col = df_sp.columns[4]  # Kolom E
         
-        # Process sources column to get entities
+        # Process sources column to get entities (separasi dengan ';' bukan ',')
+        df_sp[sp_sources_col] = df_sp[sp_sources_col].astype(str).apply(lambda x: x.split(';') if pd.notna(x) else [])
         _, source_counts = process_dataset(df_sp, sp_sources_col)
     
     # Process data - DATASET BERITA
@@ -329,6 +330,10 @@ def main():
         berita_media_col = df_berita.columns[3]  # Kolom D
         berita_content_col = df_berita.columns[4]  # Kolom E
         berita_date_col = df_berita.columns[0]  # Kolom A
+
+        # Convert date column to datetime (same treatment as Dataset SP)
+        df_berita[berita_date_col] = pd.to_datetime(df_berita[berita_date_col], errors='coerce')
+        df_berita = df_berita.dropna(subset=[berita_date_col])
         
         # Process media column to get entities
         _, media_counts = process_dataset(df_berita, berita_media_col)

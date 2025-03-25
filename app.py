@@ -132,14 +132,18 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     
     entities_df = pd.DataFrame(all_entities_data)
     
-    # Count entity frequencies
-    narasumber_counts = entities_df['Narasumber'].value_counts()
+    # Agregasi per minggu
+    entities_df['Minggu'] = entities_df['Tanggal'].dt.to_period('W').apply(lambda r: r.start_time)
+    weekly_counts = entities_df.groupby(['Narasumber', 'Minggu']).size().reset_index(name='Frekuensi')
+    
+    # Count total frequencies
+    narasumber_counts = weekly_counts.groupby('Narasumber')['Frekuensi'].sum().sort_values(ascending=False)
     
     # Select top 10 sources for visualization
     top_sources = narasumber_counts.head(10)
     
     # Prepare data for top sources
-    plot_data = entities_df[entities_df['Narasumber'].isin(top_sources.index)]
+    plot_data = weekly_counts[weekly_counts['Narasumber'].isin(top_sources.index)]
     
     # Metrics
     col1, col2, col3 = st.columns(3)
@@ -153,22 +157,22 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     # Create scatter plot with Plotly
     fig = px.scatter(
         plot_data, 
-        x='Tanggal', 
+        x='Minggu', 
         y='Narasumber',
         color='Narasumber',
-        size_max=20,
-        size=plot_data['Narasumber'].map(narasumber_counts),
-        title='Distribusi & Frekuensi Penyebutan Narasumber',
-        labels={'Narasumber': 'Narasumber', 'Tanggal': 'Tanggal'},
-        height=600
+        size='Frekuensi',
+        size_max=25,
+        title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
+        labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
+        height=500
     )
     
     # Customize layout
     fig.update_layout(
         yaxis={'categoryorder':'total ascending'},
-        xaxis_title="Tanggal",
+        xaxis_title="Minggu",
         yaxis_title="Narasumber",
-        legend_title_text='Narasumber'
+        showlegend=False  # Menghilangkan legenda di samping
     )
     
     # Adjust marker properties

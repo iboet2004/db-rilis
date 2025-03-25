@@ -92,9 +92,9 @@ def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
     
     return media_counts
 
-def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=5):
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     """
-    Create trend analysis for sources with multiple entities per press release
+    Create scatter plot for all sources mentioning trend
     """
     # Filter dataframe if a specific SP is selected
     if selected_sp is not None and selected_sp != "Semua Siaran Pers":
@@ -109,16 +109,8 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     df = df.dropna(subset=[date_col])
     
-    # Pilihan agregasi
-    agregasi = st.radio(
-        "Agregasi Trend Narasumber", 
-        ["Mingguan", "Bulanan"], 
-        horizontal=True
-    )
-    
     # Prepare data with multiple entities
-    all_entities = []
-    entity_date_counts = {}
+    all_entities_data = []
     
     for _, row in df.iterrows():
         date = row[date_col]
@@ -128,129 +120,52 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
         for entity in entities:
             entity = entity.strip()  # Remove whitespace
             if entity:  # Ensure non-empty entity
-                all_entities.append(entity)
-                if entity not in entity_date_counts:
-                    entity_date_counts[entity] = {}
-                
-                # Tentukan periode agregasi
-                if agregasi == "Mingguan":
-                    period_key = date.to_period('W').start_time
-                else:  # Bulanan
-                    period_key = date.to_period('M').start_time
-                
-                # Hitung jumlah untuk setiap periode
-                if period_key not in entity_date_counts[entity]:
-                    entity_date_counts[entity][period_key] = 0
-                entity_date_counts[entity][period_key] += 1
+                all_entities_data.append({
+                    'Narasumber': entity,
+                    'Tanggal': date
+                })
     
-    # Jika tidak ada entitas sama sekali
-    if not all_entities:
+    # Buat DataFrame dari data
+    if not all_entities_data:
         st.warning("Tidak ada narasumber yang ditemukan")
         return
     
-    # Count total occurrences
-    entity_counts = pd.Series(all_entities).value_counts()
+    entities_df = pd.DataFrame(all_entities_data)
     
-    # Get top N entities
-    top_entities = entity_counts.head(top_n).index.tolist()
+    # Hitung total narasumber dan narasumber tersering
+    total_narasumbers = len(set(entities_df['Narasumber']))
+    top_narasumber = entities_df['Narasumber'].value_counts().index[0]
     
-    # Jika tidak ada top entities
-    if not top_entities:
-        st.warning("Tidak ada narasumber yang cukup untuk dianalisis")
-        return
-    
-    # Prepare trend data
-    trend_data = []
-    
-    # Gunakan periode dari dataframe
-    if agregasi == "Mingguan":
-        date_range = pd.period_range(
-            start=df[date_col].min().to_period('W').start_time, 
-            end=df[date_col].max().to_period('W').start_time, 
-            freq='W'
-        )
-    else:  # Bulanan
-        date_range = pd.period_range(
-            start=df[date_col].min().to_period('M').start_time, 
-            end=df[date_col].max().to_period('M').start_time, 
-            freq='M'
-        )
-    
-    for entity in top_entities:
-        for date in date_range:
-            count = entity_date_counts.get(entity, {}).get(date.start_time, 0)
-            trend_data.append({
-                'Entitas': entity,
-                'Periode': date.start_time,
-                'Jumlah': count
-            })
-    
-    # Create dataframe
-    trend_df = pd.DataFrame(trend_data)
-    
-    # Pastikan ada data untuk divisualisasikan
-    if trend_df.empty:
-        st.warning("Tidak ada data trend untuk divisualisasikan")
-        return
-    
-    # Tambahan analisis sumber siaran pers
-    col1, col2 = st.columns(2)
+    # Buat kolom metrik dalam satu baris
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Jumlah Total Narasumber", len(set(all_entities)))
+        st.metric("Total Siaran Pers", len(df))
     
     with col2:
-        # Hitung jumlah siaran pers per narasumber
-        narasumber_sp_count = {}
-        for _, row in df.iterrows():
-            entities = row[entity_col].split(';') if pd.notna(row[entity_col]) else []
-            for entity in entities:
-                entity = entity.strip()
-                if entity:
-                    if entity not in narasumber_sp_count:
-                        narasumber_sp_count[entity] = 0
-                    narasumber_sp_count[entity] += 1
-        
-        top_narasumber = max(narasumber_sp_count, key=narasumber_sp_count.get)
-        st.metric("Narasumber Tersering", f"{top_narasumber} ({narasumber_sp_count[top_narasumber]} kali)")
+        st.metric("Total Narasumber", total_narasumbers)
     
-    # Create chart
-    fig = px.line(
-        trend_df,
-        x='Periode',
-        y='Jumlah',
-        color='Entitas',
-        title=f"Tren Penyebutan {top_n} Narasumber Teratas ({agregasi})",
-        labels={'Jumlah': 'Jumlah Penyebutan', 'Periode': 'Periode'},
-        height=400
+    with col3:
+        st.metric("Narasumber Tersering", top_narasumber)
+    
+    # Scatter plot
+    fig = px.scatter(
+        entities_df, 
+        x='Tanggal', 
+        y='Narasumber',
+        title='Distribusi Penyebutan Narasumber',
+        labels={'Narasumber': 'Narasumber', 'Tanggal': 'Tanggal Siaran Pers'},
+        height=600
     )
     
-    # Kembalikan legenda ke sisi chart
+    # Customize layout
     fig.update_layout(
-        legend=dict(
-            orientation="v",  # Vertical orientation
-            yanchor="top",
-            y=1,
-            xanchor="left",
-            x=1.02
-        ),
-        xaxis_title="Periode",
-        yaxis_title="Jumlah Penyebutan"
+        yaxis={'categoryorder':'total ascending'},  # Urutkan narasumber berdasarkan frekuensi
+        xaxis_title="Tanggal",
+        yaxis_title="Narasumber"
     )
-    
-    fig.update_traces(mode='lines+markers')
     
     st.plotly_chart(fig, use_container_width=True)
-    
-    # Tambahan: Distribusi Narasumber
-    st.subheader("Distribusi Narasumber")
-    fig_pie = px.pie(
-        values=list(entity_counts.head(top_n)),
-        names=entity_counts.head(top_n).index,
-        title="Proporsi Penyebutan Narasumber Top",
-        height=400
-    )
-    st.plotly_chart(fig_pie, use_container_width=True)
 
 def create_media_sources_sankey(df_berita, sp_title_col, media_col):
     """

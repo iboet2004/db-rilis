@@ -161,9 +161,9 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         y='Narasumber',
         color='Narasumber',
         size='Frekuensi',
-        size_max=25,
+        size_max=15,
         title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
-        labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
+        labels={'Narasumber': 'Narasumber', 'Minggu': 'Pekan'},
         height=400
     )
     

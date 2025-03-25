@@ -23,9 +23,16 @@ def create_sp_selector(df_sp, sp_title_col, sp_date_col):
     """
     Create a dropdown selector for press releases with date range filter
     """
-    # Add a "Semua Siaran Pers" option
-    sp_titles = ["Semua Siaran Pers"] + list(df_sp[sp_title_col].dropna().unique())
+    # Filter dataframe berdasarkan rentang tanggal
+    df_sp[sp_date_col] = pd.to_datetime(df_sp[sp_date_col], errors='coerce')
+    df_sp_filtered = df_sp[
+        (df_sp[sp_date_col].dt.date >= start_date) & 
+        (df_sp[sp_date_col].dt.date <= end_date)
+    ]
     
+    # Tambahkan opsi "Semua Siaran Pers" 
+    sp_titles = ["Semua Siaran Pers"] + list(df_sp_filtered[sp_title_col].dropna().sort_values(ascending=False).unique())
+
     # Convert date column to datetime
     df_sp[sp_date_col] = pd.to_datetime(df_sp[sp_date_col], errors='coerce')
     

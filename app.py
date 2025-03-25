@@ -65,28 +65,47 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     """
     Create trend analysis for sources
     """
+    # Filter dataframe if a specific SP is selected
     if selected_sp is not None and selected_sp != "Semua Siaran Pers":
         df = df[df[df.columns[0]] == selected_sp]
+    
+    # Pastikan dataframe tidak kosong
+    if df.empty:
+        st.warning("Tidak ada data untuk dianalisis")
+        return
     
     # Prepare data
     all_entities = []
     entity_dates = {}
     
     for _, row in df.iterrows():
-        date = pd.to_datetime(row[date_col]).date()
-        entities = process_entities(row[entity_col], separator=';')
-        
-        for entity in entities:
-            all_entities.append(entity)
-            if entity not in entity_dates:
-                entity_dates[entity] = []
-            entity_dates[entity].append(date)
+        try:
+            date = pd.to_datetime(row[date_col]).date()
+            entities = process_entities(row[entity_col], separator=';')
+            
+            for entity in entities:
+                all_entities.append(entity)
+                if entity not in entity_dates:
+                    entity_dates[entity] = []
+                entity_dates[entity].append(date)
+        except Exception as e:
+            st.warning(f"Error processing row: {e}")
+    
+    # Jika tidak ada entitas sama sekali
+    if not all_entities:
+        st.warning("Tidak ada narasumber yang ditemukan")
+        return
     
     # Count total occurrences
     entity_counts = pd.Series(all_entities).value_counts()
     
     # Get top N entities
     top_entities = entity_counts.head(top_n).index.tolist()
+    
+    # Jika tidak ada top entities
+    if not top_entities:
+        st.warning("Tidak ada narasumber yang cukup untuk dianalisis")
+        return
     
     # Prepare trend data
     trend_data = []
@@ -104,6 +123,11 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     
     # Create dataframe
     trend_df = pd.DataFrame(trend_data)
+    
+    # Pastikan ada data untuk divisualisasikan
+    if trend_df.empty:
+        st.warning("Tidak ada data trend untuk divisualisasikan")
+        return
     
     # Create line chart
     fig = px.line(

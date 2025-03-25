@@ -92,7 +92,7 @@ def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
     
     return media_counts
 
-def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=10):
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=5):
     """
     Create trend analysis for sources with multiple entities per press release
     """
@@ -122,7 +122,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     
     for _, row in df.iterrows():
         date = row[date_col]
-        # Split entities with semicolon instead of comma
+        # Split entities yang dipisahkan oleh titik koma
         entities = row[entity_col].split(';') if pd.notna(row[entity_col]) else []
         
         for entity in entities:
@@ -142,6 +142,9 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
                 if period_key not in entity_date_counts[entity]:
                     entity_date_counts[entity][period_key] = 0
                 entity_date_counts[entity][period_key] += 1
+    
+    # Debugging: Tampilkan semua narasumber yang ditemukan
+    st.write(f"Semua Narasumber: {all_entities}")
     
     # Jika tidak ada entitas sama sekali
     if not all_entities:

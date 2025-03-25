@@ -176,7 +176,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         size_max=20,
         title='📌 Scatter Plot Tren Penyebutan Narasumber',
         labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
-        height=400,
+        height=350,
         custom_data=['Narasumber', 'RentangMinggu', 'Frekuensi']
     )
     

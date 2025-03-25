@@ -157,14 +157,47 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     # Prepare data for top sources
     plot_data = weekly_counts[weekly_counts['Narasumber'].isin(top_sources.index)]
     
-    # Metrics
-    col1, col2, col3 = st.columns(3)
+    # Metrics with custom styling
+    col1, col2, col3 = st.columns([1,1,1])
+    
     with col1:
-        st.metric("Total Siaran Pers", len(df))
+        st.markdown("""
+        <div style="background-color:rgba(240,240,240,0.5); 
+                    border-radius:10px; 
+                    padding:10px; 
+                    text-align:center; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4 style="margin:0; color:#555;">Total Siaran Pers</h4>
+            <h2 style="margin:5px 0 0; color:#333;">{}</h2>
+        </div>
+        """.format(len(df)), unsafe_allow_html=True)
+    
     with col2:
-        st.metric("Total Narasumber", len(narasumber_counts))
+        st.markdown(f"""
+        <div style="background-color:rgba(240,240,240,0.5); 
+                    border-radius:10px; 
+                    padding:10px; 
+                    text-align:center; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4 style="margin:0; color:#555;">Total Narasumber</h4>
+            <h2 style="margin:5px 0 0; color:#333;">{len(narasumber_counts)}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col3:
-        st.metric("Narasumber Tersering", top_sources.index[0])
+        top_narasumber = top_sources.index[0]
+        top_narasumber_count = top_sources.iloc[0]
+        st.markdown(f"""
+        <div style="background-color:rgba(240,240,240,0.5); 
+                    border-radius:10px; 
+                    padding:10px; 
+                    text-align:center; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4 style="margin:0; color:#555;">Narasumber Tersering</h4>
+            <h2 style="margin:5px 0 0; color:#333;">{top_narasumber}</h2>
+            <p style="margin:5px 0 0; color:#777;font-size:0.8em;">({top_narasumber_count} kali)</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Create scatter plot with Plotly
     fig = px.scatter(
@@ -191,10 +224,14 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     
     # Customize layout
     fig.update_layout(
-        yaxis={'categoryorder':'total ascending'},
+        yaxis={
+            'categoryorder':'total ascending',
+            'tickfont': dict(size=10)  # Mengecilkan font nama narasumber
+        },
         xaxis_title="Pekan",
         yaxis_title="Narasumber",
-        showlegend=False
+        showlegend=False,
+        title_font_size=16
     )
     
     st.plotly_chart(fig, use_container_width=True)

@@ -143,9 +143,6 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
                     entity_date_counts[entity][period_key] = 0
                 entity_date_counts[entity][period_key] += 1
     
-    # Debugging: Tampilkan semua narasumber yang ditemukan
-    st.write(f"Semua Narasumber: {all_entities}")
-    
     # Jika tidak ada entitas sama sekali
     if not all_entities:
         st.warning("Tidak ada narasumber yang ditemukan")

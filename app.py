@@ -215,6 +215,9 @@ def main():
     berita_media_col = df_berita.columns[3]  # Kolom D
     berita_content_col = df_berita.columns[4]  # Kolom E
     berita_date_col = df_berita.columns[0]  # Kolom A
+
+    entity_col = berita_media_col  # Narasumber
+    date_col = berita_date_col
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["Siaran Pers", "Pemberitaan", "Analisis Mendalam"])

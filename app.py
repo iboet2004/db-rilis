@@ -92,9 +92,9 @@ def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
     
     return media_counts
 
-def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=10):
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     """
-    Create scatter plot for all sources mentioning trend with enhanced visualization
+    Create scatter plot for all sources mentioning trend
     """
     # Filter dataframe if a specific SP is selected
     if selected_sp is not None and selected_sp != "Semua Siaran Pers":
@@ -132,18 +132,9 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     
     entities_df = pd.DataFrame(all_entities_data)
     
-    # Hitung frekuensi narasumber
-    narasumber_counts = entities_df['Narasumber'].value_counts()
-    
-    # Tambahkan kolom frekuensi ke DataFrame
-    entities_df['Frekuensi'] = entities_df['Narasumber'].map(narasumber_counts)
-    
-    # Pisahkan narasumber menjadi dua baris
-    total_narasumbers = len(narasumber_counts)
-    mid_point = total_narasumbers // 2
-    
-    top_narasumbers = list(narasumber_counts.index[:mid_point])
-    bottom_narasumbers = list(narasumber_counts.index[mid_point:])
+    # Hitung total narasumber dan narasumber tersering
+    total_narasumbers = len(set(entities_df['Narasumber']))
+    top_narasumber = entities_df['Narasumber'].value_counts().index[0]
     
     # Buat kolom metrik dalam satu baris
     col1, col2, col3 = st.columns(3)
@@ -155,37 +146,23 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
         st.metric("Total Narasumber", total_narasumbers)
     
     with col3:
-        st.metric("Narasumber Tersering", narasumber_counts.index[0])
+        st.metric("Narasumber Tersering", top_narasumber)
     
-    # Scatter plot dengan dua baris narasumber
-    fig = go.Figure()
-    
-    # Tambahkan trace untuk setiap set narasumber
-    for i, narasumber_set in enumerate([top_narasumbers, bottom_narasumbers]):
-        subset = entities_df[entities_df['Narasumber'].isin(narasumber_set)]
-        
-        fig.add_trace(go.Scatter(
-            x=subset['Tanggal'], 
-            y=subset['Narasumber'],
-            mode='markers',
-            marker=dict(
-                size=subset['Frekuensi'] * 5,  # Ukuran marker proporsional dengan frekuensi
-                color=subset['Frekuensi'],     # Warna berdasarkan frekuensi
-                colorscale='Viridis',          # Gradient warna
-                showscale=True,
-                colorbar=dict(title='Frekuensi') if i == 1 else dict(title='')
-            ),
-            text=subset['Narasumber'] + '<br>Frekuensi: ' + subset['Frekuensi'].astype(str),
-            hoverinfo='text'
-        ))
+    # Scatter plot
+    fig = px.scatter(
+        entities_df, 
+        x='Tanggal', 
+        y='Narasumber',
+        title='Distribusi Penyebutan Narasumber',
+        labels={'Narasumber': 'Narasumber', 'Tanggal': 'Tanggal Siaran Pers'},
+        height=600
+    )
     
     # Customize layout
     fig.update_layout(
-        title='Distribusi & Frekuensi Penyebutan Narasumber',
-        height=500,
+        yaxis={'categoryorder':'total ascending'},  # Urutkan narasumber berdasarkan frekuensi
         xaxis_title="Tanggal",
-        yaxis_title="Narasumber",
-        yaxis={'categoryorder':'total ascending'}
+        yaxis_title="Narasumber"
     )
     
     st.plotly_chart(fig, use_container_width=True)

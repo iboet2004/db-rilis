@@ -74,22 +74,27 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
         st.warning("Tidak ada data untuk dianalisis")
         return
     
+    # Konversi kolom tanggal
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
+    
     # Prepare data
     all_entities = []
-    entity_dates = {}
+    entity_date_counts = {}
     
     for _, row in df.iterrows():
-        try:
-            date = pd.to_datetime(row[date_col]).date()
-            entities = process_entities(row[entity_col], separator=';')
+        date = row[date_col].date()
+        entities = process_entities(row[entity_col], separator=';')
+        
+        for entity in entities:
+            all_entities.append(entity)
+            if entity not in entity_date_counts:
+                entity_date_counts[entity] = {}
             
-            for entity in entities:
-                all_entities.append(entity)
-                if entity not in entity_dates:
-                    entity_dates[entity] = []
-                entity_dates[entity].append(date)
-        except Exception as e:
-            st.warning(f"Error processing row: {e}")
+            # Hitung jumlah untuk setiap tanggal
+            if date not in entity_date_counts[entity]:
+                entity_date_counts[entity][date] = 0
+            entity_date_counts[entity][date] += 1
     
     # Jika tidak ada entitas sama sekali
     if not all_entities:
@@ -109,15 +114,17 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     
     # Prepare trend data
     trend_data = []
-    date_range = pd.date_range(df[date_col].min(), df[date_col].max())
+    
+    # Gunakan date range dari dataframe
+    date_range = pd.date_range(start=df[date_col].min(), end=df[date_col].max())
     
     for entity in top_entities:
         for date in date_range:
             date_key = date.date()
-            count = entity_dates.get(entity, []).count(date_key)
+            count = entity_date_counts.get(entity, {}).get(date_key, 0)
             trend_data.append({
                 'Entitas': entity,
-                'Tanggal': date,
+                'Tanggal': date_key,
                 'Jumlah': count
             })
     

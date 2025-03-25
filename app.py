@@ -139,8 +139,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
                 if st.radio(
                     "Agregasi Trend Narasumber", 
                     ["Mingguan", "Bulanan"], 
-                    horizontal=True,
-                    key="radio_agregasi_trend"
+                    horizontal=True
                 ) == "Mingguan":
                     period_key = date.to_period('W').start_time
                 else:  # Bulanan
@@ -217,8 +216,8 @@ def main():
     berita_content_col = df_berita.columns[4]  # Kolom E
     berita_date_col = df_berita.columns[0]  # Kolom A
 
-    entity_col = berita_media_col  # Narasumber
-    date_col = berita_date_col
+    entity_col = "Entities"
+    date_col = "Date"
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["Siaran Pers", "Pemberitaan", "Analisis Mendalam"])
@@ -276,4 +275,3 @@ def main():
 # Run the main function
 if __name__ == "__main__":
     main()
-    

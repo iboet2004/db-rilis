@@ -161,7 +161,8 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         y='Narasumber',
         color='Narasumber',
         size='Frekuensi',
-        size_max=15,
+        size_min=5,
+        size_max=20,
         title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
         labels={'Narasumber': 'Narasumber', 'Minggu': 'Pekan'},
         height=400
@@ -170,7 +171,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     # Customize layout
     fig.update_layout(
         yaxis={'categoryorder':'total ascending'},
-        xaxis_title="Minggu",
+        xaxis_title="Pekan",
         yaxis_title="Narasumber",
         showlegend=False  # Menghilangkan legenda di samping
     )

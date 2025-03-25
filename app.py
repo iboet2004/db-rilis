@@ -92,7 +92,7 @@ def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
     
     return media_counts
 
-def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=5):
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=10):
     """
     Create trend analysis for sources with multiple entities per press release
     """

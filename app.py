@@ -94,7 +94,7 @@ def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
 
 def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     """
-    Create scatter plot for all sources mentioning trend
+    Create scatter plot for sources mentioning trend with frequency visualization
     """
     # Filter dataframe if a specific SP is selected
     if selected_sp is not None and selected_sp != "Semua Siaran Pers":
@@ -111,6 +111,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     
     # Prepare data with multiple entities
     all_entities_data = []
+    entity_frequency = {}
     
     for _, row in df.iterrows():
         date = row[date_col]
@@ -124,6 +125,11 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
                     'Narasumber': entity,
                     'Tanggal': date
                 })
+                
+                # Hitung frekuensi
+                if entity not in entity_frequency:
+                    entity_frequency[entity] = 0
+                entity_frequency[entity] += 1
     
     # Buat DataFrame dari data
     if not all_entities_data:
@@ -134,7 +140,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     
     # Hitung total narasumber dan narasumber tersering
     total_narasumbers = len(set(entities_df['Narasumber']))
-    top_narasumber = entities_df['Narasumber'].value_counts().index[0]
+    top_narasumber = max(entity_frequency, key=entity_frequency.get)
     
     # Buat kolom metrik dalam satu baris
     col1, col2, col3 = st.columns(3)
@@ -146,15 +152,30 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         st.metric("Total Narasumber", total_narasumbers)
     
     with col3:
-        st.metric("Narasumber Tersering", top_narasumber)
+        st.metric("Narasumber Tersering", f"{top_narasumber} ({entity_frequency[top_narasumber]} kali)")
     
-    # Scatter plot
+    # Scatter plot dengan ukuran titik berdasarkan frekuensi
+    # Normalisasi ukuran untuk visualisasi
+    max_freq = max(entity_frequency.values())
+    
+    # Tambahkan kolom frekuensi dan ukuran
+    entities_df['Frekuensi'] = entities_df['Narasumber'].map(entity_frequency)
+    entities_df['Ukuran'] = entities_df['Frekuensi'] / max_freq * 20  # Skala ukuran
+    
+    # Buat scatter plot dengan ukuran titik
     fig = px.scatter(
         entities_df, 
         x='Tanggal', 
         y='Narasumber',
-        title='Distribusi Penyebutan Narasumber',
-        labels={'Narasumber': 'Narasumber', 'Tanggal': 'Tanggal Siaran Pers'},
+        size='Ukuran',
+        color='Narasumber',
+        hover_data=['Frekuensi'],
+        title='Distribusi dan Frekuensi Narasumber',
+        labels={
+            'Narasumber': 'Narasumber', 
+            'Tanggal': 'Tanggal Siaran Pers',
+            'Frekuensi': 'Jumlah Kemunculan'
+        },
         height=600
     )
     
@@ -164,6 +185,16 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         xaxis_title="Tanggal",
         yaxis_title="Narasumber"
     )
+    
+    # Tambahkan tabel frekuensi
+    st.subheader("Rincian Frekuensi Narasumber")
+    
+    # Buat DataFrame frekuensi
+    freq_df = pd.DataFrame.from_dict(entity_frequency, orient='index', columns=['Jumlah'])
+    freq_df.index.name = 'Narasumber'
+    freq_df = freq_df.sort_values('Jumlah', ascending=False)
+    
+    st.dataframe(freq_df)
     
     st.plotly_chart(fig, use_container_width=True)
 

@@ -241,6 +241,81 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     fig.update_traces(mode='lines+markers')
     
     st.plotly_chart(fig, use_container_width=True)
+
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
+    """
+    Create scatter plot for all sources mentioning trend
+    """
+    # Filter dataframe if a specific SP is selected
+    if selected_sp is not None and selected_sp != "Semua Siaran Pers":
+        df = df[df[df.columns[0]] == selected_sp]
+    
+    # Pastikan dataframe tidak kosong
+    if df.empty:
+        st.warning("Tidak ada data untuk dianalisis")
+        return
+    
+    # Konversi kolom tanggal
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
+    
+    # Prepare data with multiple entities
+    all_entities_data = []
+    
+    for _, row in df.iterrows():
+        date = row[date_col]
+        # Split entities yang dipisahkan oleh titik koma
+        entities = row[entity_col].split(';') if pd.notna(row[entity_col]) else []
+        
+        for entity in entities:
+            entity = entity.strip()  # Remove whitespace
+            if entity:  # Ensure non-empty entity
+                all_entities_data.append({
+                    'Narasumber': entity,
+                    'Tanggal': date
+                })
+    
+    # Buat DataFrame dari data
+    if not all_entities_data:
+        st.warning("Tidak ada narasumber yang ditemukan")
+        return
+    
+    entities_df = pd.DataFrame(all_entities_data)
+    
+    # Hitung total narasumber dan narasumber tersering
+    total_narasumbers = len(set(entities_df['Narasumber']))
+    top_narasumber = entities_df['Narasumber'].value_counts().index[0]
+    
+    # Buat kolom metrik dalam satu baris
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Siaran Pers", len(df))
+    
+    with col2:
+        st.metric("Total Narasumber", total_narasumbers)
+    
+    with col3:
+        st.metric("Narasumber Tersering", top_narasumber)
+    
+    # Scatter plot
+    fig = px.scatter(
+        entities_df, 
+        x='Tanggal', 
+        y='Narasumber',
+        title='Distribusi Penyebutan Narasumber',
+        labels={'Narasumber': 'Narasumber', 'Tanggal': 'Tanggal Siaran Pers'},
+        height=600
+    )
+    
+    # Customize layout
+    fig.update_layout(
+        yaxis={'categoryorder':'total ascending'},  # Urutkan narasumber berdasarkan frekuensi
+        xaxis_title="Tanggal",
+        yaxis_title="Narasumber"
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
     
     # Tambahan: Distribusi Narasumber
     st.subheader("Distribusi Narasumber")

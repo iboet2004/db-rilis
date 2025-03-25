@@ -85,45 +85,27 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     if selected_sp is not None and selected_sp != "Semua Siaran Pers":
         df = df[df[df.columns[0]] == selected_sp]
     
-    # Ensure dataframe is not empty
+    # Pastikan dataframe tidak kosong
     if df.empty:
         st.warning("Tidak ada data untuk dianalisis")
         return
     
-    # Convert date column to datetime
+    # Konversi kolom tanggal
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     df = df.dropna(subset=[date_col])
     
-    # Date range selector
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        start_date = st.date_input(
-            "Tanggal Mulai", 
-            min_value=df[date_col].min().date(), 
-            max_value=df[date_col].max().date(), 
-            value=df[date_col].min().date()
-        )
-    
-    with col2:
-        end_date = st.date_input(
-            "Tanggal Akhir", 
-            min_value=df[date_col].min().date(), 
-            max_value=df[date_col].max().date(), 
-            value=df[date_col].max().date()
-        )
-    
-    # Filter dataframe by date range
-    df_filtered = df[
-        (df[date_col].dt.date >= start_date) & 
-        (df[date_col].dt.date <= end_date)
-    ]
+    # Pilihan agregasi
+    agregasi = st.radio(
+        "Agregasi Trend Narasumber", 
+        ["Mingguan", "Bulanan"], 
+        horizontal=True
+    )
     
     # Prepare data with multiple entities
     all_entities = []
     entity_date_counts = {}
     
-    for _, row in df_filtered.iterrows():
+    for _, row in df.iterrows():
         date = row[date_col]
         # Split entities with semicolon instead of comma
         entities = row[entity_col].split(';') if pd.notna(row[entity_col]) else []
@@ -135,18 +117,13 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
                 if entity not in entity_date_counts:
                     entity_date_counts[entity] = {}
                 
-                # Determine period aggregation
-                if st.radio(
-                    "Agregasi Trend Narasumber", 
-                    ["Mingguan", "Bulanan"], 
-                    horizontal=True,
-                    key="radio_agregasi_trend"
-                ) == "Mingguan":
+                # Tentukan periode agregasi
+                if agregasi == "Mingguan":
                     period_key = date.to_period('W').start_time
                 else:  # Bulanan
                     period_key = date.to_period('M').start_time
                 
-                # Count occurrences for each period
+                # Hitung jumlah untuk setiap periode
                 if period_key not in entity_date_counts[entity]:
                     entity_date_counts[entity][period_key] = 0
                 entity_date_counts[entity][period_key] += 1
@@ -165,18 +142,18 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
         }
         trend_df = trend_df.append(entity_data, ignore_index=True)
     
-    # Create chart
+    # Create chart - Kembalikan legenda ke sisi chart
     fig = px.line(
         trend_df,
-        x="Periode",
-        y="Jumlah",
-        color="Entitas",
-        title=f"Tren Penyebutan {top_n} Narasumber Teratas",
-        labels={"Jumlah": "Jumlah Penyebutan", "Periode": "Periode"},
+        x='Periode',
+        y='Jumlah',
+        color='Entitas',
+        title=f"Tren Penyebutan {top_n} Narasumber Teratas ({agregasi})",
+        labels={'Jumlah': 'Jumlah Penyebutan', 'Periode': 'Periode'},
         height=400
     )
     
-    # Move legend to the side of the chart
+    # Kembalikan legenda ke sisi chart
     fig.update_layout(
         legend=dict(
             orientation="v",  # Vertical orientation
@@ -229,7 +206,14 @@ def main():
         selected_sp, start_date, end_date = create_sp_selector(df_sp, sp_title_col, sp_date_col)
         
         # Filter dataframe with date range
-        df_sp_filtered = filter_dataframe(df_sp, sp_title_col, sp_date_col, selected_sp, start_date, end_date)
+        df_sp_filtered = filter_dataframe(
+            df_sp, 
+            sp_title_col, 
+            sp_date_col, 
+            selected_sp, 
+            start_date, 
+            end_date
+        )
         
         # Total Siaran Pers
         st.metric("Total Siaran Pers", len(df_sp_filtered))

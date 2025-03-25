@@ -135,12 +135,12 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
     trend_df = pd.DataFrame(columns=["Entitas", "Periode", "Jumlah"])
     
     for entity in sorted_entities[:top_n]:
-        entity_data = {
-            "Entitas": entity,
+        entity_data = pd.DataFrame({
+            "Entitas": [entity] * len(entity_date_counts[entity]),
             "Periode": list(entity_date_counts[entity].keys()),
             "Jumlah": list(entity_date_counts[entity].values())
-        }
-        trend_df = trend_df.append(entity_data, ignore_index=True)
+        })
+        trend_df = pd.concat([trend_df, entity_data], ignore_index=True)
     
     # Create chart - Kembalikan legenda ke sisi chart
     fig = px.line(

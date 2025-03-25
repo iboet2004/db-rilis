@@ -164,7 +164,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         size_max=25,
         title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
         labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
-        height=500
+        height=400
     )
     
     # Customize layout

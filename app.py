@@ -133,8 +133,16 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     entities_df = pd.DataFrame(all_entities_data)
     
     # Agregasi per minggu
-    entities_df['Minggu'] = entities_df['Tanggal'].dt.to_period('W').apply(lambda r: r.start_time)
+    entities_df['Minggu'] = entities_df['Tanggal'].dt.to_period('W')
     weekly_counts = entities_df.groupby(['Narasumber', 'Minggu']).size().reset_index(name='Frekuensi')
+    
+    # Tambahkan rentang tanggal minggu
+    def get_week_range(week_period):
+        start = week_period.start_time
+        end = week_period.end_time
+        return f"{start.day}-{end.day} {start.strftime('%B %Y')}"
+    
+    weekly_counts['RentangMinggu'] = weekly_counts['Minggu'].apply(get_week_range)
     
     # Count total frequencies
     narasumber_counts = weekly_counts.groupby('Narasumber')['Frekuensi'].sum().sort_values(ascending=False)
@@ -161,26 +169,28 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
         y='Narasumber',
         color='Narasumber',
         size='Frekuensi',
-        size_max=20,
+        size_max=25,
         title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
-        labels={'Narasumber': 'Narasumber', 'Minggu': 'Pekan'},
-        height=400
+        labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
+        height=500,
+        custom_data=['Narasumber', 'RentangMinggu', 'Frekuensi']
+    )
+    
+    # Customize hover template
+    fig.update_traces(
+        hovertemplate='<b>%{customdata[0]}</b><br>%{customdata[1]}<br>Frekuensi: %{customdata[2]} kali<extra></extra>',
+        marker=dict(
+            line=dict(width=1, color='DarkSlateGrey'),
+            opacity=0.7
+        )
     )
     
     # Customize layout
     fig.update_layout(
         yaxis={'categoryorder':'total ascending'},
-        xaxis_title="Pekan",
+        xaxis_title="Minggu",
         yaxis_title="Narasumber",
-        showlegend=False  # Menghilangkan legenda di samping
-    )
-    
-    # Adjust marker properties
-    fig.update_traces(
-        marker=dict(
-            line=dict(width=1, color='DarkSlateGrey'),
-            opacity=0.7
-        )
+        showlegend=False
     )
     
     st.plotly_chart(fig, use_container_width=True)

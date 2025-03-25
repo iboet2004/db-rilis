@@ -157,13 +157,13 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None):
     # Create scatter plot with Plotly
     fig = px.scatter(
         plot_data, 
-        x='Pekan', 
+        x='Minggu', 
         y='Narasumber',
         color='Narasumber',
         size='Frekuensi',
-        size_max=15,
-        title='Distribusi & Frekuensi Penyebutan Narasumber per Pekan',
-        labels={'Narasumber': 'Narasumber', 'Pekan': 'Minggu'},
+        size_max=25,
+        title='Distribusi & Frekuensi Penyebutan Narasumber per Minggu',
+        labels={'Narasumber': 'Narasumber', 'Minggu': 'Minggu'},
         height=400
     )
     

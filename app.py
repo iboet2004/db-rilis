@@ -139,7 +139,7 @@ def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, to
                 if st.radio(
                     "Agregasi Trend Narasumber", 
                     ["Mingguan", "Bulanan"], 
-                    horizontal=True
+                    horizontal=True,
                     key="radio_agregasi_trend"
                 ) == "Mingguan":
                     period_key = date.to_period('W').start_time

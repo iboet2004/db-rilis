@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+import plotly.figure_factory as ff
 import numpy as np
-from data_loader import load_dataset, process_dataset, process_entities, get_unique_locations
+from data_loader import load_dataset, process_entities, get_unique_locations
 from visualization import (
     create_scorecard, 
     create_top_entities_chart, 
@@ -20,51 +20,61 @@ st.set_page_config(
     layout="wide"
 )
 
-def get_common_entries(df1, col1, df2, col2):
+def create_sp_selector(df_sp, sp_title_col):
     """
-    Get common entries between two dataframes' columns
+    Create a dropdown selector for press releases
     """
-    # Get unique values from both columns
-    values1 = set()
-    for val in df1[col1]:
-        if not pd.isna(val):
-            values1.add(str(val).strip())
+    # Add a "Semua Siaran Pers" option
+    sp_titles = ["Semua Siaran Pers"] + list(df_sp[sp_title_col].dropna().unique())
     
-    values2 = set()
-    for val in df2[col2]:
-        if not pd.isna(val):
-            values2.add(str(val).strip())
+    selected_sp = st.selectbox(
+        "Pilih Siaran Pers", 
+        sp_titles, 
+        index=0, 
+        key="sp_selector"
+    )
     
-    # Find intersection
-    common = values1.intersection(values2)
-    return len(common)
+    return selected_sp
 
-def create_trend_analysis(df, entity_col, date_col, top_n=5, days=30):
+def filter_dataframe(df, title_col, selected_title):
     """
-    Create trend analysis for top entities over time
+    Filter dataframe based on selected title
     """
-    if entity_col not in df.columns or date_col not in df.columns:
-        st.warning("Data tidak tersedia untuk analisis tren")
-        return
+    if selected_title == "Semua Siaran Pers":
+        return df
+    else:
+        return df[df[title_col] == selected_title]
+
+def count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col):
+    """
+    Count number of media per press release
+    """
+    media_counts = {}
     
-    # Convert date to datetime
-    df_copy = df.copy()
-    df_copy[date_col] = pd.to_datetime(df_copy[date_col], errors='coerce')
+    for sp_title in df_sp[sp_title_col]:
+        # Filter berita yang merujuk ke SP ini
+        related_berita = df_berita[df_berita[berita_sp_ref_col] == sp_title]
+        
+        # Hitung jumlah media unik
+        unique_media = related_berita[df_berita.columns[3]].nunique()
+        media_counts[sp_title] = unique_media
     
-    # Drop rows with invalid dates
-    df_copy = df_copy.dropna(subset=[date_col])
+    return media_counts
+
+def create_sources_trend_analysis(df, entity_col, date_col, selected_sp=None, top_n=5):
+    """
+    Create trend analysis for sources
+    """
+    if selected_sp is not None and selected_sp != "Semua Siaran Pers":
+        df = df[df[df.columns[0]] == selected_sp]
     
-    if df_copy.empty:
-        st.warning("Tidak ada data tanggal yang valid untuk analisis tren")
-        return
-    
-    # Process entities
+    # Prepare data
     all_entities = []
     entity_dates = {}
     
-    for _, row in df_copy.iterrows():
-        date = row[date_col].date()
-        entities = process_entities(row[entity_col])
+    for _, row in df.iterrows():
+        date = pd.to_datetime(row[date_col]).date()
+        entities = process_entities(row[entity_col], separator=';')
         
         for entity in entities:
             all_entities.append(entity)
@@ -78,31 +88,14 @@ def create_trend_analysis(df, entity_col, date_col, top_n=5, days=30):
     # Get top N entities
     top_entities = entity_counts.head(top_n).index.tolist()
     
-    if not top_entities:
-        st.warning("Tidak ada data entitas yang cukup untuk analisis tren")
-        return
-    
-    # Determine date range
-    all_dates = [date for dates in entity_dates.values() for date in dates]
-    if not all_dates:
-        return
-    
-    min_date = min(all_dates)
-    max_date = max(all_dates)
-    
-    # Create date range from min to max date
-    date_range = pd.date_range(min_date, max_date)
-    
-    # Create dataframe for trend analysis
+    # Prepare trend data
     trend_data = []
+    date_range = pd.date_range(df[date_col].min(), df[date_col].max())
     
     for entity in top_entities:
-        if entity not in entity_dates:
-            continue
-            
         for date in date_range:
             date_key = date.date()
-            count = entity_dates[entity].count(date_key)
+            count = entity_dates.get(entity, []).count(date_key)
             trend_data.append({
                 'Entitas': entity,
                 'Tanggal': date,
@@ -112,192 +105,60 @@ def create_trend_analysis(df, entity_col, date_col, top_n=5, days=30):
     # Create dataframe
     trend_df = pd.DataFrame(trend_data)
     
-    # Create line chart for trend analysis
+    # Create line chart
     fig = px.line(
         trend_df,
         x='Tanggal',
         y='Jumlah',
         color='Entitas',
-        title=f"Tren Penyebutan {top_n} Entitas Teratas",
+        title=f"Tren Penyebutan {top_n} Narasumber Teratas",
         labels={'Jumlah': 'Jumlah Penyebutan', 'Tanggal': 'Tanggal'},
         height=400
     )
     
-    # Add markers
     fig.update_traces(mode='lines+markers')
     
-    # Customize chart
     fig.update_layout(
         xaxis_title="Tanggal",
         yaxis_title="Jumlah Penyebutan",
-        legend_title="Entitas"
+        legend_title="Narasumber"
     )
     
     st.plotly_chart(fig, use_container_width=True)
 
-def create_effectiveness_chart(df_sp, sp_title_col, df_berita, berita_sp_ref_col, berita_date_col, top_n=10):
+def create_media_sources_sankey(df_berita, sp_title_col, media_col):
     """
-    Create chart showing most effective press releases (most news coverage)
+    Create Sankey diagram for sources in news
     """
-    if df_sp.empty or df_berita.empty:
-        st.warning("Data tidak tersedia untuk analisis efektivitas")
-        return
+    # Group by SP reference and media
+    sankey_data = df_berita.groupby([sp_title_col, media_col]).size().reset_index(name='count')
     
-    if sp_title_col not in df_sp.columns or berita_sp_ref_col not in df_berita.columns:
-        st.warning("Kolom yang diperlukan tidak ditemukan")
-        return
+    # Prepare data for Sankey diagram
+    sources = sankey_data[sp_title_col].tolist()
+    targets = sankey_data[media_col].tolist()
+    values = sankey_data['count'].tolist()
     
-    # Get unique SP titles
-    sp_titles = {}
-    for idx, title in enumerate(df_sp[sp_title_col]):
-        if not pd.isna(title):
-            sp_titles[str(title).strip()] = idx
+    # Create color palette
+    unique_sources = list(set(sources))
+    unique_targets = list(set(targets))
+    color_palette = px.colors.qualitative.Plotly
     
-    # Count references in news
-    sp_refs_count = {}
-    
-    for _, row in df_berita.iterrows():
-        ref = row[berita_sp_ref_col]
-        if pd.isna(ref):
-            continue
-            
-        ref_str = str(ref).strip()
-        if ref_str in sp_titles:
-            if ref_str not in sp_refs_count:
-                sp_refs_count[ref_str] = 0
-            sp_refs_count[ref_str] += 1
-    
-    # Create dataframe for visualization
-    effectiveness_data = []
-    
-    for title, count in sp_refs_count.items():
-        effectiveness_data.append({
-            'Judul Siaran Pers': title[:50] + '...' if len(title) > 50 else title,
-            'Jumlah Pemberitaan': count
-        })
-    
-    # Sort and get top N
-    effectiveness_df = pd.DataFrame(effectiveness_data)
-    effectiveness_df = effectiveness_df.sort_values('Jumlah Pemberitaan', ascending=False).head(top_n)
-    
-    if effectiveness_df.empty:
-        st.warning("Tidak ada data yang cukup untuk analisis efektivitas")
-        return
-    
-    # Create horizontal bar chart
-    fig = px.bar(
-        effectiveness_df,
-        x='Jumlah Pemberitaan',
-        y='Judul Siaran Pers',
-        orientation='h',
-        title=f"Top {top_n} Siaran Pers dengan Pemberitaan Terbanyak",
-        labels={'Jumlah Pemberitaan': 'Jumlah Pemberitaan', 'Judul Siaran Pers': ''},
-        height=400,
-        color='Jumlah Pemberitaan',
-        color_continuous_scale=px.colors.sequential.Viridis
-    )
-    
-    # Customize chart
-    fig.update_layout(
-        xaxis_title="Jumlah Pemberitaan",
-        yaxis_title="",
-        yaxis={'categoryorder': 'total ascending'}
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-def create_media_response_time(df_sp, sp_title_col, sp_date_col, df_berita, berita_sp_ref_col, berita_date_col):
-    """
-    Analyze media response time after press release
-    """
-    if df_sp.empty or df_berita.empty:
-        st.warning("Data tidak tersedia untuk analisis waktu respon")
-        return
-    
-    # Check required columns
-    req_cols = [sp_title_col, sp_date_col, berita_sp_ref_col, berita_date_col]
-    if not all(col in df_sp.columns if i < 2 else col in df_berita.columns for i, col in enumerate(req_cols)):
-        st.warning("Kolom yang diperlukan tidak ditemukan")
-        return
-    
-    # Convert date columns to datetime
-    df_sp_copy = df_sp.copy()
-    df_berita_copy = df_berita.copy()
-    
-    df_sp_copy[sp_date_col] = pd.to_datetime(df_sp_copy[sp_date_col], errors='coerce')
-    df_berita_copy[berita_date_col] = pd.to_datetime(df_berita_copy[berita_date_col], errors='coerce')
-    
-    # Drop rows with invalid dates
-    df_sp_copy = df_sp_copy.dropna(subset=[sp_date_col])
-    df_berita_copy = df_berita_copy.dropna(subset=[berita_date_col])
-    
-    if df_sp_copy.empty or df_berita_copy.empty:
-        st.warning("Tidak ada data tanggal yang valid untuk analisis waktu respon")
-        return
-    
-    # Create dictionary of SP titles and their dates
-    sp_dates = {}
-    for _, row in df_sp_copy.iterrows():
-        title = row[sp_title_col]
-        date = row[sp_date_col]
-        
-        if not pd.isna(title) and not pd.isna(date):
-            sp_dates[str(title).strip()] = date
-    
-    # Calculate response times
-    response_times = []
-    
-    for _, row in df_berita_copy.iterrows():
-        ref = row[berita_sp_ref_col]
-        news_date = row[berita_date_col]
-        
-        if pd.isna(ref) or pd.isna(news_date):
-            continue
-            
-        ref_str = str(ref).strip()
-        if ref_str in sp_dates:
-            sp_date = sp_dates[ref_str]
-            
-            # Calculate days difference
-            days_diff = (news_date - sp_date).days
-            
-            # Only consider positive differences (news after SP)
-            # and reasonable time frame (within 30 days)
-            if 0 <= days_diff <= 30:
-                response_times.append(days_diff)
-    
-    if not response_times:
-        st.warning("Tidak cukup data untuk analisis waktu respon")
-        return
-    
-    # Create histogram of response times
-    fig = px.histogram(
-        response_times,
-        nbins=15,
-        title="Waktu Respon Media Setelah Siaran Pers (dalam Hari)",
-        labels={'value': 'Hari', 'count': 'Jumlah Pemberitaan'},
-        height=300
-    )
-    
-    # Calculate average response time
-    avg_response = sum(response_times) / len(response_times)
-    
-    # Add a vertical line for average
-    fig.add_vline(
-        x=avg_response,
-        line_dash="dash",
-        line_color="red",
-        annotation_text=f"Rata-rata: {avg_response:.1f} hari",
-        annotation_position="top right"
-    )
-    
-    # Customize chart
-    fig.update_layout(
-        xaxis_title="Hari",
-        yaxis_title="Jumlah Pemberitaan",
-        bargap=0.1
-    )
-    
+    # Create Sankey diagram
+    fig = go.Figure(data=[go.Sankey(
+        node = dict(
+          pad = 15,
+          thickness = 20,
+          line = dict(color = "black", width = 0.5),
+          label = unique_sources + unique_targets,
+          color = color_palette[:len(unique_sources)] + color_palette[:len(unique_targets)]
+        ),
+        link = dict(
+          source = [unique_sources.index(s) for s in sources],
+          target = [len(unique_sources) + unique_targets.index(t) for t in targets],
+          value = values
+      ))])
+
+    fig.update_layout(title_text="Aliran Pemberitaan dari Siaran Pers ke Media", font_size=10)
     st.plotly_chart(fig, use_container_width=True)
 
 def main():
@@ -313,161 +174,87 @@ def main():
         st.error("Gagal memuat data")
         return
     
-    # Process data - DATASET SP
-    if not df_sp.empty:
-        sp_title_col = df_sp.columns[0]  # Kolom A
-        sp_content_col = df_sp.columns[1]  # Kolom B
-        sp_sources_col = df_sp.columns[3]  # Kolom D
-        sp_date_col = df_sp.columns[4]  # Kolom E
-        
-        # Process sources column to get entities
-        _, source_counts = process_dataset(df_sp, sp_sources_col)
+    # Column definitions
+    sp_title_col = df_sp.columns[0]  # Kolom A
+    sp_content_col = df_sp.columns[1]  # Kolom B
+    sp_sources_col = df_sp.columns[3]  # Kolom D
+    sp_date_col = df_sp.columns[4]  # Kolom E
     
-    # Process data - DATASET BERITA
-    if not df_berita.empty:
-        berita_sp_ref_col = df_berita.columns[1]  # Kolom B
-        berita_media_col = df_berita.columns[3]  # Kolom D
-        berita_content_col = df_berita.columns[4]  # Kolom E
-        berita_date_col = df_berita.columns[0]  # Kolom A
-        
-        # Process media column to get entities
-        _, media_counts = process_dataset(df_berita, berita_media_col)
+    berita_sp_ref_col = df_berita.columns[1]  # Kolom B
+    berita_media_col = df_berita.columns[3]  # Kolom D
+    berita_content_col = df_berita.columns[4]  # Kolom E
+    berita_date_col = df_berita.columns[0]  # Kolom A
     
-    # Create tabs for better organization
-    tab1, tab2, tab3, tab4 = st.tabs(["Siaran Pers", "Pemberitaan", "Analisis Gabungan", "Insight Mendalam"])
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["Siaran Pers", "Pemberitaan", "Analisis Mendalam"])
     
     # Tab 1: Siaran Pers
     with tab1:
-        if df_sp.empty:
-            st.warning("Data Siaran Pers tidak tersedia")
-        else:
-            # Create layout with columns
-            col1, col2 = st.columns(2)
-            
-            # 1. Scorecard - Jumlah Siaran Pers
-            with col1:
-                create_scorecard("Jumlah Siaran Pers", len(df_sp))
-            
-            # 2. Bar Chart - Top 10 Narasumber
-            with col2:
-                create_top_entities_chart(source_counts, "Top 10 Narasumber", 10)
-            
-            # 3. Wordcloud dari Konten
-            create_wordcloud(df_sp[sp_content_col], "Wordcloud Konten Siaran Pers")
-            
-            # 4. Timeline Series
-            st.subheader("Timeline Publikasi Siaran Pers")
-            create_timeline_chart(df_sp, sp_title_col, sp_date_col, "Publikasi Siaran Pers per Tanggal")
-            
-            # 5. Trend Analysis for Top Sources
-            st.subheader("Tren Penyebutan Narasumber Teratas")
-            create_trend_analysis(df_sp, sp_sources_col, sp_date_col, top_n=5)
+        # Selector for press releases
+        selected_sp = create_sp_selector(df_sp, sp_title_col)
+        
+        # Filter dataframe if a specific SP is selected
+        df_sp_filtered = filter_dataframe(df_sp, sp_title_col, selected_sp)
+        
+        # 1. Total Siaran Pers
+        st.metric("Total Siaran Pers", len(df_sp_filtered))
+        
+        # 2. Trend Penyebutan Narasumber
+        st.subheader("Trend Penyebutan Narasumber")
+        create_sources_trend_analysis(
+            df_sp, 
+            sp_sources_col, 
+            sp_date_col, 
+            selected_sp
+        )
+        
+        # 3. Timeline Produksi Siaran Pers
+        st.subheader("Timeline Produksi Siaran Pers")
+        create_timeline_chart(
+            df_sp_filtered, 
+            sp_title_col, 
+            sp_date_col, 
+            "Publikasi Siaran Pers"
+        )
     
     # Tab 2: Pemberitaan
     with tab2:
-        if df_berita.empty:
-            st.warning("Data Pemberitaan tidak tersedia")
-        else:
-            # Count unique SP references
-            unique_sp_refs = 0
-            if not df_sp.empty:
-                unique_sp_refs = get_common_entries(df_berita, berita_sp_ref_col, df_sp, sp_title_col)
-            
-            # Create layout with columns
-            col1, col2 = st.columns(2)
-            
-            # 1. Scorecard - Jumlah Pemberitaan
-            with col1:
-                create_scorecard(
-                    "Jumlah Pemberitaan", 
-                    len(df_berita), 
-                    helptext=f"Termasuk {unique_sp_refs} pemberitaan yang mengacu pada Siaran Pers"
-                )
-                st.caption(f"Mengacu pada {unique_sp_refs} Siaran Pers")
-            
-            # 2. Bar Chart - Top 10 Media
-            with col2:
-                create_top_entities_chart(
-                    media_counts, 
-                    "Top 10 Media", 
-                    10, 
-                    color="#1E88E5"  # Blue color to differentiate from SP chart
-                )
-            
-            # 3. Wordcloud dari Konten Berita
-            create_wordcloud(df_berita[berita_content_col], "Wordcloud Konten Pemberitaan")
-            
-            # 4. Timeline Series for News
-            st.subheader("Timeline Pemberitaan")
-            create_timeline_chart(df_berita, berita_content_col, berita_date_col, "Pemberitaan per Tanggal")
+        # 1. Total Pemberitaan
+        total_berita = len(df_berita)
+        st.metric("Total Pemberitaan", total_berita)
+        
+        # 2. Top 10 Media
+        st.subheader("Top 10 Media")
+        media_counts = df_berita[berita_media_col].value_counts().head(10)
+        create_top_entities_chart(media_counts, "Top 10 Media", 10)
+        
+        # 3. Rata-rata Media per Siaran Pers
+        media_per_sp = count_media_per_sp(df_sp, df_berita, sp_title_col, berita_sp_ref_col)
+        avg_media = np.mean(list(media_per_sp.values()))
+        st.metric("Rata-rata Media per Siaran Pers", f"{avg_media:.2f}")
+        
+        # 4. Top 10 Siaran Pers dengan Pemberitaan Terbanyak
+        st.subheader("Top 10 Siaran Pers dengan Pemberitaan Terbanyak")
+        berita_per_sp = df_berita[berita_sp_ref_col].value_counts().head(10)
+        create_top_entities_chart(berita_per_sp, "Top 10 Siaran Pers", 10)
+        
+        # 5. Wordcloud Konten Berita
+        st.subheader("Wordcloud Konten Berita")
+        create_wordcloud(df_berita[berita_content_col], "Wordcloud Pemberitaan")
+        
+        # 6. Sankey Diagram Narasumber di Berita
+        st.subheader("Aliran Pemberitaan")
+        create_media_sources_sankey(df_berita, berita_sp_ref_col, berita_media_col)
     
-    # Tab 3: Analisis Gabungan
+    # Tab 3: Analisis Mendalam
     with tab3:
-        if df_sp.empty or df_berita.empty:
-            st.warning("Data Siaran Pers atau Pemberitaan tidak tersedia")
-        else:
-            st.subheader("Perbandingan Wordcloud Siaran Pers vs Pemberitaan")
-            create_side_by_side_wordclouds(
-                df_sp[sp_content_col], 
-                "Siaran Pers", 
-                df_berita[berita_content_col], 
-                "Pemberitaan"
-            )
-            
-            # Comparison metrics
-            st.subheader("Perbandingan Metrik")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                create_scorecard("Jumlah Siaran Pers", len(df_sp))
-            
-            with col2:
-                create_scorecard("Jumlah Pemberitaan", len(df_berita))
-            
-            with col3:
-                # Calculate ratio
-                if len(df_sp) > 0:
-                    ratio = round(len(df_berita) / len(df_sp), 2)
-                    create_scorecard("Rasio Pemberitaan/Siaran Pers", ratio)
-                else:
-                    create_scorecard("Rasio Pemberitaan/Siaran Pers", "N/A")
-            
-            # Effectiveness Analysis
-            st.subheader("Efektivitas Siaran Pers")
-            create_effectiveness_chart(df_sp, sp_title_col, df_berita, berita_sp_ref_col, berita_date_col)
+        st.write("Analisis lanjutan akan ditambahkan")
     
-    # Tab 4: Deep Insights
-    with tab4:
-        if df_sp.empty or df_berita.empty:
-            st.warning("Data Siaran Pers atau Pemberitaan tidak tersedia")
-        else:
-            st.subheader("Insight Lanjutan")
-            
-            # Media Response Time Analysis
-            st.subheader("Analisis Waktu Respon Media")
-            create_media_response_time(df_sp, sp_title_col, sp_date_col, df_berita, berita_sp_ref_col, berita_date_col)
-            
-            # Trend comparison
-            st.subheader("Perbandingan Tren Siaran Pers dan Pemberitaan")
-            
-            # Create two columns for comparison
-            col1, col2 = st.columns(2)
-            
-            # Timeline for SP
-            with col1:
-                st.subheader("Timeline Siaran Pers")
-                create_timeline_chart(df_sp, sp_title_col, sp_date_col, "")
-            
-            # Timeline for News
-            with col2:
-                st.subheader("Timeline Pemberitaan")
-                create_timeline_chart(df_berita, berita_content_col, berita_date_col, "")
-    
-    # Add data tables (hidden by default)
-    with st.expander("Lihat Data Siaran Pers"):
+    # Expanded Data Tables
+    with st.expander("Detail Siaran Pers"):
         st.dataframe(df_sp)
     
-    with st.expander("Lihat Data Berita"):
+    with st.expander("Detail Pemberitaan"):
         st.dataframe(df_berita)
 
 if __name__ == "__main__":

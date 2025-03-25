@@ -71,16 +71,17 @@ def load_dataset(sheet_name):
         st.error(f"Error loading data from sheet {sheet_name}: {e}")
         return pd.DataFrame()
 
-def process_entities(cell_value):
+def process_entities(cell_value, separator=';'):
     """
     Process cell values by:
-    1. Splitting entities by comma
+    1. Splitting entities by specified separator
     2. Removing entities containing '##'
+    3. Stripping whitespace
     """
     if pd.isna(cell_value):
         return []
     
-    entities = [entity.strip() for entity in str(cell_value).split(',')]
+    entities = [entity.strip() for entity in str(cell_value).split(separator)]
     filtered_entities = [entity for entity in entities if '##' not in entity]
     return filtered_entities
 

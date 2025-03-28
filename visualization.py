@@ -16,11 +16,11 @@ def create_top_entities_chart(data, title, top_n=10):
     Create bar chart for top entities
     """
     fig = px.bar(
-        x=data.index, 
-        y=data.values, 
+        x=data.values, 
+        y=data.index, 
         orientation='h',
         title=title,
-        labels={'x': 'Entitas', 'y': 'Jumlah'}
+        labels={'y': 'Entitas', 'x': 'Jumlah'}
     )
     st.plotly_chart(fig, use_container_width=True)
 

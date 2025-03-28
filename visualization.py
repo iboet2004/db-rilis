@@ -18,6 +18,7 @@ def create_top_entities_chart(data, title, top_n=10):
     fig = px.bar(
         x=data.index, 
         y=data.values, 
+        orientation='h',
         title=title,
         labels={'x': 'Entitas', 'y': 'Jumlah'}
     )

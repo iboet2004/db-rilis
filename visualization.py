@@ -15,9 +15,10 @@ def create_top_entities_chart(data, title, top_n=10):
     """
     Create bar chart for top entities
     """
+    sorted_data = data.sort_values(ascending=False).head(20)
     fig = px.bar(
-        x=data.values, 
-        y=data.index, 
+        x=sorted_data.values, 
+        y=sorted_data.index, 
         orientation='h',
         title=title,
         labels={'y': 'Entitas', 'x': 'Jumlah'}

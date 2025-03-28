@@ -241,7 +241,7 @@ def create_media_sources_sankey(df_berita, sp_title_col, media_col):
     Create Sankey diagram for sources in news
     """
     # Group by SP reference and media
-    sankey_data = df_berita.groupby([sp_title_col, media_col]).size().reset_index(name='count').head(5)
+    sankey_data = df_berita.groupby([sp_title_col, media_col]).size().reset_index(name='count').head(10)
     
     # Prepare data for Sankey diagram
     sources = sankey_data[sp_title_col].tolist()
